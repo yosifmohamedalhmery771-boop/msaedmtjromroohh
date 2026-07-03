@@ -50,8 +50,6 @@ export default function PWAInstallModal({
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
   // Detect if currently loaded inside an iframe (such as AI Studio preview iframe)
   const isInsideIframe = React.useMemo(() => {
     try {
@@ -60,6 +58,8 @@ export default function PWAInstallModal({
       return true;
     }
   }, []);
+
+  if (!isOpen) return null;
 
   const handleInstallClick = () => {
     if (hasNativePrompt && !isInsideIframe) {
