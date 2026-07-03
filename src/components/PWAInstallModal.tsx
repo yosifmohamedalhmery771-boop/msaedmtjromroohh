@@ -173,6 +173,20 @@ export default function PWAInstallModal({
                 <Download className="w-4.5 h-4.5" />
               </button>
 
+              {/* Super Helpful Share Target Info Section */}
+              <div className="w-full mt-4 p-4 bg-teal-50 border border-teal-100 rounded-[1.5rem] space-y-2 text-right" dir="rtl">
+                <div className="flex items-center gap-1.5 text-teal-900 font-extrabold text-xs">
+                  <Share className="w-3.5 h-3.5 text-teal-600" />
+                  <span>ميزة المشاركة الفورية المباشرة 📲✨</span>
+                </div>
+                <p className="text-[10px] text-teal-850 leading-relaxed font-semibold">
+                  بمجرد تثبيت التطبيق على جهازك، يمكنك مشاركة أي منتج مباشرة من لوحة تحكم المتجر (سلة) أو صفحة المنتجات دون الحاجة للنسخ واللصق! ستجدين <strong className="text-teal-950">"مساعد النشر"</strong> ظاهراً في قائمة تطبيقات المشاركة بهاتفك الأندرويد.
+                </p>
+                <p className="text-[8.5px] text-slate-500">
+                  * ميزة استقبال المشاركة (Share Target) مدعومة على هواتف أندرويد عبر متصفح كروم. (غير مدعومة على أجهزة iOS بسبب قيود شركة آبل).
+                </p>
+              </div>
+
               {/* Disclaimer */}
               <p className="text-[10.5px] text-slate-400 text-center px-4 mt-3.5 leading-relaxed" dir="rtl">
                 إذا لم يظهر مربع التثبيت التلقائي، يمكنك النقر على خيارات المتصفح (⋮) ثم اختيار تثبيت التطبيق (Install App) يدوياً.

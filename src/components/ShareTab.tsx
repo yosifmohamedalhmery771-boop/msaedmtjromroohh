@@ -49,6 +49,7 @@ export default function ShareTab({
   const [selectedImages, setSelectedImages] = React.useState<DriveImage[]>([]);
   const [isLoadingImages, setIsLoadingImages] = React.useState(false);
   const [imageError, setImageError] = React.useState('');
+  const [showShareTutorial, setShowShareTutorial] = React.useState(false);
   
   // Share processing states
   const [isPreparingShare, setIsPreparingShare] = React.useState(false);
@@ -362,6 +363,62 @@ export default function ShareTab({
             placeholder="ألصق وصف المنتج هنا مع رابط المتجر (أو سيتم ملؤه تلقائياً عند مشاركة الصنف من تطبيق المتجر)..."
             id="textarea-product-desc"
           />
+
+          {/* Collapsible auto-share guide */}
+          <div className="pt-1">
+            <button
+              onClick={() => setShowShareTutorial(!showShareTutorial)}
+              className="text-xs text-teal-600 hover:text-teal-800 font-extrabold flex items-center gap-1.5 transition-colors cursor-pointer"
+              id="btn-toggle-share-tutorial"
+            >
+              <span>💡 كيف أشارك المنتجات مباشرة من المتجر (سلة) دون نسخ ولصق؟</span>
+              <span className="text-[10px] bg-teal-50 px-1.5 py-0.5 rounded-md border border-teal-100 font-bold">
+                {showShareTutorial ? 'إغلاق الإرشاد ✕' : 'عرض التفاصيل ←'}
+              </span>
+            </button>
+
+            <AnimatePresence>
+              {showShareTutorial && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                  id="share-tutorial-body"
+                >
+                  <div className="mt-3 p-4 bg-teal-50/60 border border-teal-100 rounded-2xl space-y-3 text-right text-xs" dir="rtl">
+                    <span className="font-extrabold text-teal-900 block">📲 ميزة المشاركة الفورية المباشرة (Web Share Target):</span>
+                    <p className="text-slate-600 font-semibold leading-relaxed">
+                      لقد قمنا ببرمجة وتفعيل هذه الميزة خصيصاً لك لكيلا تتعبي في نسخ ولصق الروابط! إليك كيف تشغلينها فوراً:
+                    </p>
+                    
+                    <div className="space-y-2 text-[11px] text-slate-700 pr-2 border-r-2 border-teal-200">
+                      <div>
+                        <span className="font-bold text-teal-800">1. تثبيت التطبيق أولاً: </span>
+                        اضغطي على زر <strong className="text-slate-950 font-black">"تثبيت التطبيق 📱"</strong> في أعلى الشاشة لتنزيل الأداة كتطبيق مستقل على هاتفك.
+                      </div>
+                      <div>
+                        <span className="font-bold text-teal-800">2. مشاركة صنف من المتجر: </span>
+                        اذهبي إلى لوحة تحكم متجرك (سلة) أو صفحة أي منتج في متصفح هاتفك، واضغطي على زر <strong className="text-slate-950 font-black">"مشاركة" (Share)</strong> الخاص بالهاتف أو المتصفح.
+                      </div>
+                      <div>
+                        <span className="font-bold text-teal-800">3. اختيار مساعد النشر: </span>
+                        ستجدين <strong className="text-slate-950 font-black">"مساعد النشر لمتجر أم روح"</strong> ظاهراً كأيقونة من ضمن خيارات تطبيقات المشاركة (بجانب واتساب وتليجرام). اضغطي عليه!
+                      </div>
+                      <div className="font-extrabold text-emerald-850">
+                        ✨ سيفتح مساعد النشر فوراً ويقوم بتعبئة وصف المنتج مع رابط الطلب والروابط المخصصة في هذا الصندوق تلقائياً!
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 bg-amber-50 border border-amber-100 rounded-xl text-[10px] text-amber-900 leading-relaxed font-semibold">
+                      ⚠️ <strong className="text-amber-950">تنويه هام للآيفون:</strong> ميزة استقبال المشاركة التلقائية (Share Target) مدعومة بالكامل على هواتف <strong className="text-amber-950">أندرويد عبر متصفح Chrome</strong>. للأسف، نظام iOS (الآيفون) يمنع تماماً جميع المواقع والـ PWAs من استقبال الروابط عبر قائمة مشاركة النظام لأسباب أمنية خاصة بشركة آبل، ولذلك سيضطر مستخدمو الآيفون لاستخدام طريقة النسخ واللصق التقليدية.
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Step 2: Select Folder and Images */}
