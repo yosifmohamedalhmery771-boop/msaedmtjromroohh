@@ -5,7 +5,7 @@ import './index.css';
 
 // Register Service Worker for PWA
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
+  const registerSW = () => {
     navigator.serviceWorker.register('/sw.js')
       .then((registration) => {
         console.log('SW registered with scope: ', registration.scope);
@@ -13,7 +13,13 @@ if ('serviceWorker' in navigator) {
       .catch((err) => {
         console.error('SW registration failed: ', err);
       });
-  });
+  };
+
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    registerSW();
+  } else {
+    window.addEventListener('load', registerSW);
+  }
 }
 
 createRoot(document.getElementById('root')!).render(

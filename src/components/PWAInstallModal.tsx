@@ -18,13 +18,15 @@ interface PWAInstallModalProps {
   onClose: () => void;
   onInstallNatively: () => void;
   hasNativePrompt: boolean;
+  isAlreadyInstalled?: boolean;
 }
 
 export default function PWAInstallModal({
   isOpen,
   onClose,
   onInstallNatively,
-  hasNativePrompt
+  hasNativePrompt,
+  isAlreadyInstalled = false
 }: PWAInstallModalProps) {
   if (!isOpen) return null;
 
@@ -38,7 +40,7 @@ export default function PWAInstallModal({
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in animate-none" id="pwa-install-modal">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" id="pwa-install-modal">
       <div 
         className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
@@ -51,7 +53,7 @@ export default function PWAInstallModal({
               <Download className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-black text-slate-800">تثبيت التطبيق على الشاشة الرئيسية</h3>
+              <h3 className="text-base sm:text-lg font-black text-slate-800">تثبيت التطبيق على جهازك</h3>
               <p className="text-[10.5px] text-slate-400 font-semibold">استمتع بتجربة تطبيق مستقلة وسريعة بالكامل</p>
             </div>
           </div>
@@ -67,8 +69,23 @@ export default function PWAInstallModal({
         {/* Content Body */}
         <div className="p-6 overflow-y-auto space-y-6 select-none" id="pwa-modal-body">
           
-          {/* Iframe warning section */}
-          {isInsideIframe ? (
+          {/* Main prompt status area */}
+          {isAlreadyInstalled ? (
+            <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-2xl text-center space-y-3" id="pwa-already-installed-area">
+              <div className="w-12 h-12 bg-white text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-xs border border-emerald-50">
+                <CheckCircle className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-black text-emerald-950">التطبيق مثبت ونشط بالفعل! 🎉</h4>
+                <p className="text-xs text-emerald-800 leading-relaxed font-semibold">
+                  أنت تستخدم التطبيق حالياً بنجاح كـ تطبيق ويب متقدم (PWA) مستقل بالكامل ومثبت على شاشتك الرئيسية!
+                </p>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  يعمل هذا الإصدار بمثابة تطبيق مستقل (شبيه بتطبيقات الأندرويد والآيفون) حيث يتميز بسرعة الاستجابة الفائقة وعدم وجود أشرطة المتصفح العلوية أو السفلية.
+                </p>
+              </div>
+            </div>
+          ) : isInsideIframe ? (
             <div className="bg-amber-50 border border-amber-200 p-5 rounded-2xl text-center space-y-3" id="iframe-install-prompt-area">
               <div className="w-12 h-12 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto border border-amber-150">
                 <ExternalLink className="w-6 h-6" />
@@ -100,9 +117,9 @@ export default function PWAInstallModal({
                 <Smartphone className="w-6 h-6 animate-bounce" />
               </div>
               <div className="space-y-1">
-                <h4 className="text-sm font-black text-emerald-900">تثبيت فوري مدعوم!</h4>
+                <h4 className="text-sm font-black text-emerald-950">تثبيت فوري ومستقل مدعوم!</h4>
                 <p className="text-xs text-emerald-700 leading-relaxed">
-                  متصفحك يدعم التثبيت المباشر بنقرة واحدة كتطبيق مستقل تماماً على جهازك.
+                  متصفحك يدعم التثبيت المباشر بنقرة واحدة كتطبيق مستقل تماماً على جهازك شبيه بتطبيقات الأندرويد.
                 </p>
               </div>
               <button

@@ -41,6 +41,7 @@ export default function App() {
   // PWA Install prompt state
   const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
   const [isPWAInstallOpen, setIsPWAInstallOpen] = React.useState(false);
+  const [isAlreadyInstalled, setIsAlreadyInstalled] = React.useState(false);
 
   // Listen to PWA installation events
   React.useEffect(() => {
@@ -51,8 +52,24 @@ export default function App() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
+    // Check if running in standalone display mode
+    const checkStandalone = () => {
+      const standalone = window.matchMedia('(display-mode: standalone)').matches || 
+                         (window.navigator as any).standalone === true;
+      setIsAlreadyInstalled(standalone);
+    };
+    checkStandalone();
+
+    const handleAppInstalled = () => {
+      setIsAlreadyInstalled(true);
+      setDeferredPrompt(null);
+    };
+
+    window.addEventListener('appinstalled', handleAppInstalled);
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
 
@@ -204,6 +221,7 @@ export default function App() {
         onClose={() => setIsPWAInstallOpen(false)}
         onInstallNatively={handleInstallApp}
         hasNativePrompt={!!deferredPrompt}
+        isAlreadyInstalled={isAlreadyInstalled}
       />
 
       {/* Image Preview Modal */}
