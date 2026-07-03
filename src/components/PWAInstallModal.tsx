@@ -10,7 +10,8 @@ import {
   PlusSquare, 
   CheckCircle,
   HelpCircle,
-  ExternalLink
+  ExternalLink,
+  AlertCircle
 } from 'lucide-react';
 
 interface PWAInstallModalProps {
@@ -148,6 +149,20 @@ export default function PWAInstallModal({
 
           {/* Guide steps */}
           <div className="space-y-5" id="pwa-manual-instructions">
+            {/* WhatsApp / In-app Browser Warning */}
+            <div className="p-4 bg-amber-50 border border-amber-200/70 rounded-2xl text-xs space-y-1.5" id="whatsapp-inapp-warning">
+              <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                <AlertCircle className="w-4 h-4 text-amber-600" />
+                <span>هام جداً لمستخدمي تطبيق واتساب ⚠️</span>
+              </div>
+              <p className="text-amber-800 leading-relaxed font-semibold text-[11px]">
+                إذا كنت تفتح هذا الرابط من داخل تطبيق <strong className="text-emerald-700">واتساب (WhatsApp)</strong> أو أي تطبيق آخر، يرجى أولاً النقر على النقاط الثلاث في الأعلى واختيار <strong className="text-amber-950">"الفتح في متصفح خارجي"</strong> أو <strong className="text-amber-950">"الفتح في Chrome/Safari"</strong>.
+              </p>
+              <p className="text-slate-500 text-[10px] leading-relaxed">
+                * المتصفحات المدمجة داخل التطبيقات تحظر تثبيت تطبيقات الويب المستقلة (PWA)، لذا يجب الانتقال للمتصفح الأساسي للهاتف أولاً.
+              </p>
+            </div>
+
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">طرق التثبيت اليدوية بحسب نوع جهازك:</h4>
 
             {/* iOS Safari Guide */}

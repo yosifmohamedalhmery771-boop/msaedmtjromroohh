@@ -31,24 +31,32 @@ export interface DriveImage {
 /**
  * Fetches all images from a specific Google Drive folder.
  */
-export async function fetchDriveImages(folderId: string, accessToken: string): Promise<DriveImage[]> {
+export async function fetchDriveImages(
+  folderId: string, 
+  tokenOrKey: string, 
+  isApiKey: boolean = false
+): Promise<DriveImage[]> {
   const cleanId = extractFolderId(folderId);
   if (!cleanId) return [];
 
   // Query files that are inside the folder, are images, and are not trashed
   const q = `'${cleanId}' in parents and mimeType contains 'image/' and trashed = false`;
   const fields = 'files(id, name, mimeType, thumbnailLink, webContentLink)';
-  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}&pageSize=100`;
+  
+  let url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}&pageSize=100`;
+  const headers: HeadersInit = {};
 
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  if (isApiKey) {
+    url += `&key=${tokenOrKey}`;
+  } else {
+    headers['Authorization'] = `Bearer ${tokenOrKey}`;
+  }
+
+  const response = await fetch(url, { headers });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || 'فشل جلب الملفات من جوجل درايف. يرجى التحقق من صلاحيات المجلد.');
+    throw new Error(errorData.error?.message || 'فشل جلب الملفات من جوجل درايف. يرجى التحقق من صلاحيات المجلد والربط.');
   }
 
   const data = await response.json();
@@ -58,14 +66,21 @@ export async function fetchDriveImages(folderId: string, accessToken: string): P
 /**
  * Downloads a Google Drive file as a Blob.
  */
-export async function downloadDriveFile(fileId: string, accessToken: string): Promise<Blob> {
-  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+export async function downloadDriveFile(
+  fileId: string, 
+  tokenOrKey: string, 
+  isApiKey: boolean = false
+): Promise<Blob> {
+  let url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+  const headers: HeadersInit = {};
+
+  if (isApiKey) {
+    url += `&key=${tokenOrKey}`;
+  } else {
+    headers['Authorization'] = `Bearer ${tokenOrKey}`;
+  }
   
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  const response = await fetch(url, { headers });
 
   if (!response.ok) {
     throw new Error('فشل تحميل الصورة من جوجل درايف.');

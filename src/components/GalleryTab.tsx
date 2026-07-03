@@ -46,6 +46,11 @@ export default function GalleryTab({
     folders.length > 0 ? folders[0] : null
   );
 
+  // Compute alternative API key connection states
+  const isApiKeyUsed = !accessToken && !!settings.googleDriveApiKey;
+  const effectiveToken = accessToken || settings.googleDriveApiKey || null;
+  const isGalleryNeedsAuth = needsAuth && !settings.googleDriveApiKey;
+
   // Images state
   const [images, setImages] = React.useState<DriveImage[]>([]);
   const [isLoadingImages, setIsLoadingImages] = React.useState(false);
@@ -79,19 +84,19 @@ export default function GalleryTab({
 
   // Load images in active folder
   const loadImages = React.useCallback(async () => {
-    if (!activeFolder || !accessToken) return;
+    if (!activeFolder || !effectiveToken) return;
     setIsLoadingImages(true);
     setImageError('');
     try {
-      const driveFiles = await fetchDriveImages(activeFolder.id, accessToken);
+      const driveFiles = await fetchDriveImages(activeFolder.id, effectiveToken, isApiKeyUsed);
       setImages(driveFiles);
     } catch (err: any) {
       console.error('Error fetching images:', err);
-      setImageError(err.message || 'فشل جلب الصور من جوجل درايف. يرجى التأكد من صلاحية المجلد وتسجيل الدخول.');
+      setImageError(err.message || 'فشل جلب الصور من جوجل درايف. يرجى التأكد من صلاحية المجلد وتسجيل الدخول أو صحة مفتاح API.');
     } finally {
       setIsLoadingImages(false);
     }
-  }, [activeFolder, accessToken]);
+  }, [activeFolder, effectiveToken, isApiKeyUsed]);
 
   React.useEffect(() => {
     loadImages();
@@ -291,7 +296,7 @@ export default function GalleryTab({
     }
   }, []);
 
-  if (needsAuth) {
+  if (isGalleryNeedsAuth) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center max-w-xl mx-auto" id="gallery-auth-needed-container">
         <div className="w-20 h-20 bg-teal-50 text-teal-600 rounded-3xl flex items-center justify-center mb-6 shadow-xs" id="auth-icon-wrapper">
@@ -368,6 +373,18 @@ export default function GalleryTab({
             <h3 className="text-lg font-bold text-slate-800">رفع صورة جديدة للمستودع</h3>
           </div>
 
+          {isApiKeyUsed && (
+            <div className="p-4 bg-amber-50 border border-amber-200/60 rounded-2xl text-amber-950 text-xs font-semibold space-y-1.5" id="api-key-upload-warning">
+              <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                <AlertCircle className="w-4.5 h-4.5 shrink-0 text-amber-600" />
+                <span>الرفع معطل (وضع تصفح مفتاح API)</span>
+              </div>
+              <p className="leading-relaxed text-[11px] text-amber-800 font-medium">
+                أنت تستخدم الأداة عبر مفتاح واجهة برمجة للتصفح وجلب الروابط فقط. لرفع وحذف وتعديل أسماء الصور مباشرة، ستحتاج لاستخدام زر تسجيل دخول جوجل النشط.
+              </p>
+            </div>
+          )}
+
           <form onSubmit={handleUploadSubmit} className="space-y-4" id="upload-form">
             {/* Folder Destination Select */}
             <div className="space-y-1.5">
@@ -384,7 +401,8 @@ export default function GalleryTab({
                 <select
                   value={selectedUploadFolder}
                   onChange={(e) => setSelectedUploadFolder(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition-all text-sm font-semibold"
+                  disabled={isApiKeyUsed}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition-all text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
                   id="select-upload-target-folder"
                 >
                   {folders.map(f => (
@@ -400,11 +418,11 @@ export default function GalleryTab({
               
               {!uploadPreview ? (
                 <div
-                  onDragOver={handleDragOver}
-                  onDrop={handleDrop}
-                  className="border-2 border-dashed border-slate-200 hover:border-teal-400 bg-slate-50/50 hover:bg-teal-50/10 rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 group"
+                  onDragOver={isApiKeyUsed ? undefined : handleDragOver}
+                  onDrop={isApiKeyUsed ? undefined : handleDrop}
+                  className={`border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center transition-all flex flex-col items-center justify-center gap-3 group ${isApiKeyUsed ? 'bg-slate-50/50 opacity-60 cursor-not-allowed border-slate-200' : 'hover:border-teal-400 bg-slate-50/50 hover:bg-teal-50/10 cursor-pointer'}`}
                   id="drop-zone"
-                  onClick={() => document.getElementById('gallery-file-input')?.click()}
+                  onClick={isApiKeyUsed ? undefined : () => document.getElementById('gallery-file-input')?.click()}
                 >
                   <div className="w-12 h-12 bg-white text-slate-400 group-hover:text-teal-600 group-hover:scale-110 rounded-2xl flex items-center justify-center shadow-xs transition-all border border-slate-100">
                     <Upload className="w-6 h-6" />
@@ -419,6 +437,7 @@ export default function GalleryTab({
                     accept="image/*"
                     onChange={handleFileChange}
                     className="hidden"
+                    disabled={isApiKeyUsed}
                   />
                 </div>
               ) : (
@@ -460,7 +479,7 @@ export default function GalleryTab({
                   value={uploadName}
                   onChange={(e) => setUploadName(e.target.value)}
                   placeholder="مثال: فستان صيفي حرير أحمر"
-                  disabled={!uploadFile}
+                  disabled={!uploadFile || isApiKeyUsed}
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition-all text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
                   id="input-upload-name"
                 />
@@ -486,7 +505,7 @@ export default function GalleryTab({
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isUploading || !uploadFile || folders.length === 0}
+              disabled={isUploading || !uploadFile || folders.length === 0 || isApiKeyUsed}
               className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white font-extrabold px-5 py-3.5 rounded-2xl shadow-lg shadow-teal-600/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none text-sm"
               id="btn-upload-save"
             >
@@ -691,14 +710,16 @@ export default function GalleryTab({
                           <h4 className="text-xs sm:text-sm font-black text-slate-800 line-clamp-2 leading-relaxed flex-1">
                             {image.name}
                           </h4>
-                          <button
-                            onClick={() => handleStartRename(image)}
-                            className="p-1 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-md transition-all opacity-0 group-hover:opacity-100"
-                            title="تعديل اسم الصورة"
-                            id={`btn-edit-${image.id}`}
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
+                          {!isApiKeyUsed && (
+                            <button
+                              onClick={() => handleStartRename(image)}
+                              className="p-1 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-md transition-all opacity-0 group-hover:opacity-100"
+                              title="تعديل اسم الصورة"
+                              id={`btn-edit-${image.id}`}
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -771,19 +792,21 @@ export default function GalleryTab({
                       </button>
 
                       {/* Delete button */}
-                      <button
-                        onClick={() => handleDeleteImage(image)}
-                        disabled={isDeleting}
-                        className="text-[11px] font-bold text-red-500 hover:text-red-700 flex items-center gap-1 hover:bg-red-50 px-2 py-1 rounded-md transition-all"
-                        id={`btn-delete-${image.id}`}
-                      >
-                        {isDeleting ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-3.5 h-3.5" />
-                        )}
-                        <span>حذف</span>
-                      </button>
+                      {!isApiKeyUsed && (
+                        <button
+                          onClick={() => handleDeleteImage(image)}
+                          disabled={isDeleting}
+                          className="text-[11px] font-bold text-red-500 hover:text-red-700 flex items-center gap-1 hover:bg-red-50 px-2 py-1 rounded-md transition-all"
+                          id={`btn-delete-${image.id}`}
+                        >
+                          {isDeleting ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                          <span>حذف</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

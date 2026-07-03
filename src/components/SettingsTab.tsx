@@ -25,6 +25,7 @@ export default function SettingsTab({ settings, onSaveSettings }: SettingsTabPro
   const [whatsappChannelLink, setWhatsappChannelLink] = React.useState(settings.whatsappChannelLink);
   const [whatsappOrderLink, setWhatsappOrderLink] = React.useState(settings.whatsappOrderLink);
   const [closingMessage, setClosingMessage] = React.useState(settings.closingMessage);
+  const [googleDriveApiKey, setGoogleDriveApiKey] = React.useState(settings.googleDriveApiKey || '');
   
   // Local state for adding a folder
   const [newFolderName, setNewFolderName] = React.useState('');
@@ -88,7 +89,8 @@ export default function SettingsTab({ settings, onSaveSettings }: SettingsTabPro
       folders,
       whatsappChannelLink: whatsappChannelLink.trim(),
       whatsappOrderLink: whatsappOrderLink.trim(),
-      closingMessage: closingMessage.trim()
+      closingMessage: closingMessage.trim(),
+      googleDriveApiKey: googleDriveApiKey.trim()
     };
 
     onSaveSettings(updatedSettings);
@@ -240,6 +242,37 @@ export default function SettingsTab({ settings, onSaveSettings }: SettingsTabPro
         {/* Right Column - Google Drive Folders Configuration (5 cols) */}
         <div className="lg:col-span-5 space-y-8">
           
+          {/* Google Drive API Key Section */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-6" id="api-key-config">
+            <div className="flex items-center gap-2.5 pb-4 border-b border-slate-50">
+              <svg className="w-6 h-6 text-teal-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+              </svg>
+              <h3 className="text-lg font-bold text-slate-800">تصفح درايف دون تسجيل دخول (اختياري)</h3>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-slate-500 text-xs leading-relaxed">
+                إذا قمت بضبط مجلدات درايف لتكون <strong className="text-teal-700">"عامة - التحرير لمن لديه الرابط"</strong>، يمكنك إدخال مفتاح API لمتصفح جوجل هنا لتصفح وعرض الصور فورا دون الحاجة لربط حساب أو تسجيل الدخول بجوجل في كل مرة.
+              </p>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-600 block">مفتاح واجهة برمجة جوجل درايف (Google Drive API Key)</label>
+                <input
+                  type="password"
+                  value={googleDriveApiKey}
+                  onChange={(e) => setGoogleDriveApiKey(e.target.value)}
+                  placeholder="AIzaSy..."
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition-all text-xs font-mono"
+                  id="input-gdrive-api-key"
+                />
+              </div>
+              <p className="text-slate-400 text-[10px] leading-relaxed">
+                * وضع مفتاح API يدعم عرض الصور ونسخ الروابط فقط. للرفع، الحذف، أو تعديل الأسماء مباشرة من الأداة، ستحتاج لاستخدام زر تسجيل دخول جوجل القياسي.
+              </p>
+            </div>
+          </div>
+
           {/* Add Folder Section */}
           <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-6" id="add-folders-config">
             <div className="flex items-center gap-2.5 pb-4 border-b border-slate-50">

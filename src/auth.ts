@@ -1,5 +1,13 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
+import { 
+  getAuth, 
+  signInWithPopup, 
+  signInWithRedirect, 
+  getRedirectResult, 
+  GoogleAuthProvider, 
+  onAuthStateChanged, 
+  User 
+} from 'firebase/auth';
 import firebaseConfig from '../firebase-applet-config.json';
 
 // Initialize Firebase
@@ -19,14 +27,40 @@ provider.setCustomParameters({
 
 // Flag to indicate if we are in the middle of a sign-in flow.
 let isSigningIn = false;
-// Cache the access token in memory.
-let cachedAccessToken: string | null = null;
+// Cache the access token in memory and localStorage to survive page refreshes.
+let cachedAccessToken: string | null = (() => {
+  try {
+    return localStorage.getItem('um_ruha_gdrive_token');
+  } catch (e) {
+    return null;
+  }
+})();
 
 // Listen to Auth State changes and save token in memory
 export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
 ) => {
+  // Check if there is a redirect sign-in result on page load
+  getRedirectResult(auth)
+    .then((result) => {
+      if (result) {
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        if (credential?.accessToken) {
+          cachedAccessToken = credential.accessToken;
+          try {
+            localStorage.setItem('um_ruha_gdrive_token', cachedAccessToken);
+          } catch (e) {}
+          if (onAuthSuccess) {
+            onAuthSuccess(result.user, cachedAccessToken);
+          }
+        }
+      }
+    })
+    .catch((err) => {
+      console.error('Redirect sign in result error:', err);
+    });
+
   return onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
       if (cachedAccessToken) {
@@ -34,10 +68,16 @@ export const initAuth = (
       } else if (!isSigningIn) {
         // If there is no token cached yet, sign in again or prompt
         cachedAccessToken = null;
+        try {
+          localStorage.removeItem('um_ruha_gdrive_token');
+        } catch (e) {}
         if (onAuthFailure) onAuthFailure();
       }
     } else {
       cachedAccessToken = null;
+      try {
+        localStorage.removeItem('um_ruha_gdrive_token');
+      } catch (e) {}
       if (onAuthFailure) onAuthFailure();
     }
   });
@@ -54,6 +94,9 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     }
 
     cachedAccessToken = credential.accessToken;
+    try {
+      localStorage.setItem('um_ruha_gdrive_token', cachedAccessToken);
+    } catch (e) {}
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
     console.error('Sign in error:', error);
@@ -63,15 +106,30 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
   }
 };
 
+export const googleSignInRedirect = async (): Promise<void> => {
+  isSigningIn = true;
+  await signInWithRedirect(auth, provider);
+};
+
 export const getAccessToken = async (): Promise<string | null> => {
   return cachedAccessToken;
 };
 
 export const setAccessToken = (token: string) => {
   cachedAccessToken = token;
+  try {
+    if (token) {
+      localStorage.setItem('um_ruha_gdrive_token', token);
+    } else {
+      localStorage.removeItem('um_ruha_gdrive_token');
+    }
+  } catch (e) {}
 };
 
 export const logout = async () => {
   await auth.signOut();
   cachedAccessToken = null;
+  try {
+    localStorage.removeItem('um_ruha_gdrive_token');
+  } catch (e) {}
 };

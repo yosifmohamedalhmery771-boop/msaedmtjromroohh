@@ -1,6 +1,6 @@
 import React from 'react';
 import { User } from 'firebase/auth';
-import { initAuth, googleSignIn, logout, setAccessToken } from './auth';
+import { initAuth, googleSignIn, googleSignInRedirect, logout, setAccessToken } from './auth';
 import { Settings } from './types';
 import { DEFAULT_SETTINGS } from './presets';
 import Header from './components/Header';
@@ -10,7 +10,7 @@ import SettingsTab from './components/SettingsTab';
 import ImagePreviewModal from './components/ImagePreviewModal';
 import PWAInstallModal from './components/PWAInstallModal';
 import { DriveImage } from './googleDrive';
-import { HelpCircle, AlertCircle, Info, Smartphone, ExternalLink } from 'lucide-react';
+import { HelpCircle, AlertCircle, Info, Smartphone, ExternalLink, X } from 'lucide-react';
 
 export default function App() {
   // Global App States
@@ -31,6 +31,7 @@ export default function App() {
   const [accessToken, setAccessTokenState] = React.useState<string | null>(null);
   const [needsAuth, setNeedsAuth] = React.useState(true);
   const [isLoggingIn, setIsLoggingIn] = React.useState(false);
+  const [authError, setAuthError] = React.useState<string | null>(null);
 
   // Sharing original description text
   const [sharedText, setSharedText] = React.useState('');
@@ -121,17 +122,31 @@ export default function App() {
   }, []);
 
   // Login handler
-  const handleLogin = async () => {
+  const handleLogin = async (useRedirect = false) => {
     setIsLoggingIn(true);
+    setAuthError(null);
     try {
+      if (useRedirect) {
+        await googleSignInRedirect();
+        return;
+      }
       const result = await googleSignIn();
       if (result) {
         setAccessTokenState(result.accessToken);
         setUser(result.user);
         setNeedsAuth(false);
+        setAuthError(null);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Auth login failed:', err);
+      const errMsg = err.toString() || '';
+      if (errMsg.includes('popup-closed-by-user') || errMsg.includes('popup_closed_by_user') || errMsg.includes('closed-by-user')) {
+        setAuthError('popup_closed');
+      } else if (errMsg.includes('popup-blocked') || errMsg.includes('popup_blocked')) {
+        setAuthError('popup_blocked');
+      } else {
+        setAuthError(errMsg || 'فشل تسجيل الدخول. يرجى التحقق من اتصالك بالإنترنت وصلاحية الإعدادات.');
+      }
     } finally {
       setIsLoggingIn(false);
     }
@@ -187,6 +202,91 @@ export default function App() {
             تثبيت التطبيق على جهازك 📱
           </button>
         </div>
+
+        {/* Auth Error & Actionable Advice Panel */}
+        {authError && (
+          <div className="mb-6 p-5 bg-red-50 border border-red-200 rounded-3xl space-y-4 shadow-xs animate-fade-in" id="auth-error-alert" dir="rtl">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-100 text-red-700 flex items-center justify-center shrink-0 mt-0.5">
+                  <AlertCircle className="w-5.5 h-5.5" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-black text-red-950">فشل ربط حساب جوجل درايف</h4>
+                  <p className="text-xs text-red-800 leading-relaxed font-semibold">
+                    {authError === 'popup_closed' || authError === 'popup_blocked' ? (
+                      <span>تم إغلاق نافذة الاتصال المنبثقة أو حظرها من قبل المتصفح.</span>
+                    ) : (
+                      <span>حدث خطأ أثناء الاتصال: {authError}</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setAuthError(null)}
+                className="p-1.5 hover:bg-red-100 rounded-xl text-red-400 hover:text-red-700 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="text-xs text-slate-600 bg-white/70 rounded-2xl p-4 border border-red-100/60 space-y-3" id="auth-error-solutions">
+              <span className="font-bold text-slate-700 block">💡 الحلول السريعة والفعالة لحل هذه المشكلة فوراً:</span>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3" id="solutions-grid">
+                {/* Solution 1: Direct Redirect Login */}
+                <div className="p-3 bg-white rounded-xl border border-slate-100 space-y-2 flex flex-col justify-between">
+                  <div className="space-y-1">
+                    <span className="font-bold text-teal-800 text-[11px] block">الخيار الأول: الربط عبر إعادة التوجيه (موصى به ومضمون 100%)</span>
+                    <p className="text-[10px] text-slate-500 leading-relaxed font-semibold">
+                      يقوم بتحويل الصفحة بالكامل لتسجيل الدخول ثم العودة بأمان، مما يتفادى حظر النوافذ المنبثقة تماماً على الهواتف والآيفون.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleLogin(true)}
+                    disabled={isLoggingIn}
+                    className="w-full mt-2 py-2 px-3 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-[11px] rounded-lg transition-all text-center flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                  >
+                    {isLoggingIn ? 'جاري الاتصال...' : 'تسجيل دخول آمن بالتحويل المباشر 🔗'}
+                  </button>
+                </div>
+
+                {/* Solution 2: API Key Bypass */}
+                <div className="p-3 bg-white rounded-xl border border-slate-100 space-y-2 flex flex-col justify-between">
+                  <div className="space-y-1">
+                    <span className="font-bold text-amber-800 text-[11px] block">الخيار الثاني: استخدام مفتاح API (تصفح فوري دون تسجيل دخول)</span>
+                    <p className="text-[10px] text-slate-500 leading-relaxed font-semibold">
+                      يمكنك إدخال مفتاح API عام في الإعدادات لتصفح وعرض جميع صور المجلدات فوراً دون الحاجة لتسجيل دخولك بجوجل في كل مرة.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setAuthError(null);
+                      setActiveTab('settings');
+                      setTimeout(() => {
+                        const inputEl = document.getElementById('input-gdrive-api-key');
+                        if (inputEl) inputEl.focus();
+                        const configEl = document.getElementById('api-key-config');
+                        if (configEl) configEl.scrollIntoView({ behavior: 'smooth' });
+                      }, 200);
+                    }}
+                    className="w-full mt-2 py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-[11px] rounded-lg transition-all text-center flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    الانتقال لضبط مفتاح API في الإعدادات ⚙️
+                  </button>
+                </div>
+              </div>
+
+              {/* Hint about Authorized Redirect Domains */}
+              <div className="p-3 bg-amber-50/50 border border-amber-100 rounded-xl space-y-1" id="authorized-domains-info">
+                <span className="font-bold text-amber-950 text-[10px] block">⚠️ لمطوري ومسؤولي متجر أم روح:</span>
+                <p className="text-[10px] text-slate-500 leading-relaxed">
+                  إذا كنت مالك مشروع الفايربيس، تأكد من إضافة نطاق هذا الموقع الحالي (<code className="font-mono bg-white px-1 py-0.5 rounded border border-slate-200 text-slate-600">{window.location.hostname}</code>) إلى <strong className="text-amber-800">"نطاقات إعادة التوجيه المعتمدة" (Authorized Domains)</strong> في إعدادات Firebase Auth وفي Google Cloud Console للسماح بالربط السلس.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Content Tabs */}
         {activeTab === 'share' ? (

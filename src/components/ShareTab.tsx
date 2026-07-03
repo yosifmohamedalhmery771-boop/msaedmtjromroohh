@@ -39,6 +39,11 @@ export default function ShareTab({
   const [selectedFolder, setSelectedFolder] = React.useState<FolderConfig | null>(
     settings.folders.length > 0 ? settings.folders[0] : null
   );
+
+  // Compute alternative API key connection states
+  const isApiKeyUsed = !accessToken && !!settings.googleDriveApiKey;
+  const effectiveToken = accessToken || settings.googleDriveApiKey || null;
+  const isShareNeedsAuth = needsAuth && !settings.googleDriveApiKey;
   
   const [images, setImages] = React.useState<DriveImage[]>([]);
   const [selectedImages, setSelectedImages] = React.useState<DriveImage[]>([]);
@@ -58,9 +63,9 @@ export default function ShareTab({
     }
   }, [settings.folders, selectedFolder]);
 
-  // Load images when selected folder or accessToken changes
+  // Load images when selected folder or effectiveToken changes
   const loadFolderImages = React.useCallback(async () => {
-    if (!selectedFolder || !accessToken) return;
+    if (!selectedFolder || !effectiveToken) return;
     
     setIsLoadingImages(true);
     setImageError('');
@@ -68,15 +73,15 @@ export default function ShareTab({
     setSelectedImages([]); // Clear previous selections
 
     try {
-      const driveFiles = await fetchDriveImages(selectedFolder.id, accessToken);
+      const driveFiles = await fetchDriveImages(selectedFolder.id, effectiveToken, isApiKeyUsed);
       setImages(driveFiles);
     } catch (err: any) {
       console.error('Error loading images:', err);
-      setImageError(err.message || 'حدث خطأ أثناء تحميل الصور من المجلد. يرجى التأكد من صلاحية المجلد وإعادة تسجيل الدخول.');
+      setImageError(err.message || 'حدث خطأ أثناء تحميل الصور من المجلد. يرجى التأكد من صلاحية المجلد وإعادة تسجيل الدخول أو صحة مفتاح API.');
     } finally {
       setIsLoadingImages(false);
     }
-  }, [selectedFolder, accessToken]);
+  }, [selectedFolder, effectiveToken, isApiKeyUsed]);
 
   React.useEffect(() => {
     loadFolderImages();
@@ -147,8 +152,8 @@ export default function ShareTab({
       return;
     }
 
-    if (!accessToken) {
-      alert('يرجى تسجيل الدخول إلى جوجل درايف أولاً.');
+    if (!effectiveToken) {
+      alert('يرجى تسجيل الدخول أو ضبط مفتاح API في الإعدادات أولاً.');
       return;
     }
 
@@ -163,7 +168,7 @@ export default function ShareTab({
         const img = selectedImages[i];
         setShareProgress(`جاري تحميل الصورة ${i + 1} من ${selectedImages.length}...`);
         
-        const blob = await downloadDriveFile(img.id, accessToken);
+        const blob = await downloadDriveFile(img.id, effectiveToken, isApiKeyUsed);
         // Determine correct file extension from MIME type
         const ext = img.mimeType.split('/')[1] || 'jpeg';
         const file = new File([blob], `product_${i + 1}.${ext}`, { type: img.mimeType });
@@ -231,7 +236,7 @@ export default function ShareTab({
       for (let i = 0; i < selectedImages.length; i++) {
         const img = selectedImages[i];
         try {
-          const blob = await downloadDriveFile(img.id, accessToken!);
+          const blob = await downloadDriveFile(img.id, effectiveToken!, isApiKeyUsed);
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
@@ -309,7 +314,7 @@ export default function ShareTab({
                   ))}
                 </select>
 
-                {accessToken && !isLoadingImages && (
+                {effectiveToken && !isLoadingImages && (
                   <button
                     onClick={loadFolderImages}
                     className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-500 hover:text-teal-600 transition-all"
@@ -324,7 +329,7 @@ export default function ShareTab({
           </div>
 
           {/* Warnings and Login Prompts if disconnected */}
-          {needsAuth ? (
+          {isShareNeedsAuth ? (
             <div className="p-8 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-100 space-y-4" id="google-disconnected-warning">
               <AlertTriangle className="w-10 h-10 mx-auto text-amber-500" />
               <div className="space-y-1">

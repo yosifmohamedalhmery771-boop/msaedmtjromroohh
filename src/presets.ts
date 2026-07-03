@@ -38,5 +38,6 @@ export const DEFAULT_SETTINGS = {
   ],
   whatsappChannelLink: 'https://whatsapp.com/channel/0029Va7ABCD1234',
   whatsappOrderLink: 'https://wa.me/967770000000',
-  closingMessage: CLOSING_MESSAGE_PRESETS[0].text
+  closingMessage: CLOSING_MESSAGE_PRESETS[0].text,
+  googleDriveApiKey: ''
 };

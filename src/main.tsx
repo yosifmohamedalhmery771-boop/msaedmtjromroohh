@@ -17,6 +17,19 @@ if ('serviceWorker' in navigator) {
       });
   };
 
+  // Automatically reload page when service worker updates
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    // Only reload if there was a previous controller controlling the page,
+    // to prevent infinite reloading loops during initial registration
+    if (navigator.serviceWorker.controller) {
+      refreshing = true;
+      console.log('Service worker updated, reloading page to fetch latest assets...');
+      window.location.reload();
+    }
+  });
+
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
     registerSW();
   } else {

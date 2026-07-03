@@ -9,6 +9,7 @@ export interface Settings {
   whatsappChannelLink: string;
   whatsappOrderLink: string;
   closingMessage: string;
+  googleDriveApiKey?: string;
 }
 
 export interface ClosingMessagePreset {

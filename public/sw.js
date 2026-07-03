@@ -1,4 +1,4 @@
-const CACHE_NAME = 'um-ruha-v3';
+const CACHE_NAME = 'um-ruha-v4';
 const ASSETS = [
   '/',
   '/index.html',
@@ -30,39 +30,52 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   // Let the browser handle standard API requests normally
-  if (event.request.url.includes('googleapis.com') || event.request.url.includes('firebase')) {
+  if (
+    event.request.url.includes('googleapis.com') || 
+    event.request.url.includes('firebase') ||
+    event.request.method !== 'GET'
+  ) {
     return;
   }
 
-  // Network-First strategy for HTML / Navigation requests to prevent white screen of death on update
-  if (event.request.mode === 'navigate' || event.request.url.endsWith('.html') || event.request.url === self.location.origin + '/') {
+  // Use Network-First strategy by default for HTML, JS, CSS, and main resources to prevent white screens
+  const isStaticImage = event.request.url.match(/\.(png|jpg|jpeg|gif|svg|webp|ico)$/) && !event.request.url.includes('/icon.png');
+
+  if (!isStaticImage) {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          // Update cache with the latest version
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
+          if (response && response.status === 200 && response.type === 'basic') {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
           return response;
         })
         .catch(() => {
-          // If offline, serve from cache
           return caches.match(event.request);
         })
     );
-    return;
+  } else {
+    // Cache-First strategy for static images to save bandwidth
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(event.request).then((response) => {
+          if (response && response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        }).catch(() => {
+          // Fail silently
+        });
+      })
+    );
   }
-  
-  // For other requests, use Cache-First falling back to network
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).catch(() => {
-        // Fallback for offline or failed requests
-      });
-    })
-  );
 });
