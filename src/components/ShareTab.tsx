@@ -168,7 +168,7 @@ export default function ShareTab({
         const img = selectedImages[i];
         setShareProgress(`جاري تحميل الصورة ${i + 1} من ${selectedImages.length}...`);
         
-        const blob = await downloadDriveFile(img.id, effectiveToken, isApiKeyUsed);
+        const blob = await downloadDriveFile(img.id, effectiveToken, isApiKeyUsed, img.thumbnailLink);
         // Determine correct file extension from MIME type
         const ext = img.mimeType.split('/')[1] || 'jpeg';
         const file = new File([blob], `product_${i + 1}.${ext}`, { type: img.mimeType });
@@ -236,7 +236,7 @@ export default function ShareTab({
       for (let i = 0; i < selectedImages.length; i++) {
         const img = selectedImages[i];
         try {
-          const blob = await downloadDriveFile(img.id, effectiveToken!, isApiKeyUsed);
+          const blob = await downloadDriveFile(img.id, effectiveToken!, isApiKeyUsed, img.thumbnailLink);
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
@@ -253,6 +253,81 @@ export default function ShareTab({
 
     setFallbackActive(true);
     setIsPreparingShare(false);
+  };
+
+  const handleWhatsAppManualShare = async () => {
+    if (selectedImages.length === 0) {
+      alert('يرجى تحديد صورة واحدة على الأقل للمشاركة.');
+      return;
+    }
+
+    if (!effectiveToken) {
+      alert('يرجى تسجيل الدخول أو ضبط مفتاح API في الإعدادات أولاً.');
+      return;
+    }
+
+    setIsPreparingShare(true);
+    setShareProgress('جاري تجهيز النص والتحميل السريع...');
+    setFallbackActive(false);
+
+    try {
+      const formattedText = getFormattedMessage();
+
+      // 1. Try to copy text to clipboard
+      try {
+        await navigator.clipboard.writeText(formattedText);
+        setCopiedText(true);
+        setTimeout(() => setCopiedText(false), 3000);
+      } catch (err) {
+        console.error('Failed to copy text:', err);
+      }
+
+      // 2. Download each selected image using the super-fast canvas utility
+      for (let i = 0; i < selectedImages.length; i++) {
+        const img = selectedImages[i];
+        setShareProgress(`تنزيل الصورة ${i + 1} من ${selectedImages.length}...`);
+        try {
+          const blob = await downloadDriveFile(img.id, effectiveToken, isApiKeyUsed, img.thumbnailLink);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          const ext = img.mimeType.split('/')[1] || 'jpeg';
+          a.download = `${img.name || `product_${i + 1}`}.${ext}`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          console.error('Download failed for:', img.name, e);
+        }
+      }
+
+      // 3. Launch WhatsApp directly with prefilled message
+      setShareProgress('جاري تحويلك إلى واتساب...');
+      let waLink = '';
+      if (settings.whatsappOrderLink) {
+        const baseLink = settings.whatsappOrderLink.trim();
+        if (baseLink.includes('wa.me')) {
+          const separator = baseLink.includes('?') ? '&' : '?';
+          waLink = `${baseLink}${separator}text=${encodeURIComponent(formattedText)}`;
+        } else if (baseLink.startsWith('http')) {
+          waLink = baseLink;
+        } else {
+          // It's probably a raw phone number, construct a valid wa.me link
+          waLink = `https://wa.me/${baseLink.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(formattedText)}`;
+        }
+      } else {
+        waLink = `https://api.whatsapp.com/send?text=${encodeURIComponent(formattedText)}`;
+      }
+
+      window.open(waLink, '_blank', 'noopener,noreferrer');
+      setFallbackActive(true);
+    } catch (error) {
+      console.error('Manual WA sharing failed:', error);
+      alert('حدث خطأ أثناء إرسال البيانات للواتساب.');
+    } finally {
+      setIsPreparingShare(false);
+    }
   };
 
   return (
@@ -537,29 +612,49 @@ export default function ShareTab({
             </div>
           )}
 
-          {/* Share Trigger button with loader */}
-          <button
-            onClick={handleShareAndPublish}
-            disabled={isPreparingShare || selectedImages.length === 0}
-            className={`w-full py-4 text-white rounded-2xl font-extrabold text-base transition-all flex items-center justify-center gap-2.5 shadow-lg active:scale-95 cursor-pointer disabled:cursor-not-allowed ${
-              selectedImages.length === 0 
-                ? 'bg-slate-300 text-slate-500 shadow-none hover:bg-slate-300' 
-                : 'bg-emerald-600 hover:bg-emerald-700 hover:shadow-emerald-600/10'
-            }`}
-            id="btn-trigger-share"
-          >
-            {isPreparingShare ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-sm">{shareProgress}</span>
-              </>
-            ) : (
-              <>
-                <Share2 className="w-5 h-5 text-emerald-100" />
-                <span>مشاركة وتصدير لقناة الواتساب 💬</span>
-              </>
-            )}
-          </button>
+          {/* Action Buttons Grid */}
+          <div className="space-y-3 pt-2">
+            {/* Primary Option: Manual Fast WA Share (Download + Copy + Open WA) */}
+            <button
+              onClick={handleWhatsAppManualShare}
+              disabled={isPreparingShare || selectedImages.length === 0}
+              className={`w-full py-4 text-white rounded-2xl font-extrabold text-xs sm:text-sm md:text-base transition-all flex items-center justify-center gap-2.5 shadow-md active:scale-95 cursor-pointer disabled:cursor-not-allowed ${
+                selectedImages.length === 0 
+                  ? 'bg-slate-300 text-slate-500 shadow-none hover:bg-slate-300' 
+                  : 'bg-emerald-600 hover:bg-emerald-700 hover:shadow-emerald-600/10'
+              }`}
+              id="btn-trigger-wa-manual"
+            >
+              {isPreparingShare ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm">{shareProgress}</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5 text-emerald-100 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.717-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.965C16.528 1.977 14.07 1.953 11.45 1.951c-5.436 0-9.86 4.37-9.864 9.8a9.705 9.705 0 001.521 5.127l-.993 3.626 3.716-.962-.128-.088-.155-.08z" />
+                  </svg>
+                  <span>مشاركة سريعة للواتساب (تنزيل صور + فتح المحادثة) 💬</span>
+                </>
+              )}
+            </button>
+
+            {/* Secondary Option: Native System Share */}
+            <button
+              onClick={handleShareAndPublish}
+              disabled={isPreparingShare || selectedImages.length === 0}
+              className={`w-full py-3 rounded-2xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 border active:scale-95 cursor-pointer disabled:cursor-not-allowed ${
+                selectedImages.length === 0 
+                  ? 'border-slate-200 text-slate-400 bg-slate-50' 
+                  : 'border-teal-200 text-teal-800 bg-teal-50 hover:bg-teal-100/70 hover:border-teal-300'
+              }`}
+              id="btn-trigger-share"
+            >
+              <Share2 className="w-4 h-4 text-teal-600" />
+              <span>الخيار البديل: مشاركة النظام الذكية (نص وصور معاً) 📱</span>
+            </button>
+          </div>
           
           {selectedImages.length === 0 && (
             <p className="text-[10px] text-slate-400 text-center font-semibold">

@@ -44,6 +44,27 @@ export default function App() {
   const [isPWAInstallOpen, setIsPWAInstallOpen] = React.useState(false);
   const [isAlreadyInstalled, setIsAlreadyInstalled] = React.useState(false);
 
+  // Environment detection
+  const [isIframe, setIsIframe] = React.useState(false);
+  const [isInApp, setIsInApp] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsIframe(window.self !== window.top);
+    const ua = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+    const inApp = (
+      ua.indexOf('FBAN') > -1 ||
+      ua.indexOf('FBAV') > -1 ||
+      ua.indexOf('Instagram') > -1 ||
+      ua.indexOf('Messenger') > -1 ||
+      ua.indexOf('WhatsApp') > -1 ||
+      ua.indexOf('Line') > -1 ||
+      ua.indexOf('GSA') > -1 ||
+      /Telegram/i.test(ua) ||
+      /Snapchat/i.test(ua)
+    );
+    setIsInApp(inApp);
+  }, []);
+
   // Listen to PWA installation events
   React.useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -187,6 +208,44 @@ export default function App() {
       {/* Main Body */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8" id="app-main-content">
         
+        {/* Iframe Preview Warning Banner */}
+        {isIframe && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200/70 rounded-2xl flex items-start gap-3 text-amber-950 text-xs sm:text-sm font-semibold shadow-xs" id="iframe-warning-banner" dir="rtl">
+            <AlertCircle className="w-5.5 h-5.5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1 space-y-1">
+              <span className="text-amber-900 font-bold block">⚠️ تنبيه هـام: أنت تقوم بتشغيل مساعد النشر داخل نافذة معاينة AI Studio المدمجة</span>
+              <p className="text-[11px] text-amber-800 leading-relaxed font-semibold">
+                حماية الخصوصية في جوجل تمنع فتح نوافذ تسجيل الدخول (Popups) من داخل نوافذ المعاينة المدمجة. لتتمكن من ربط حساب جوجل درايف ورفع الصور وحذفها بنجاح، يرجى الضغط على <strong className="text-amber-950">"الفتح في علامة تبويب جديدة" (أيقونة السهم المربع في الزاوية العلوية اليمنى للمعاينة)</strong> لتشغيل التطبيق في نافذة مستقلة وبكامل طاقته!
+              </p>
+            </div>
+            <a 
+              href={window.location.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black transition-all whitespace-nowrap active:scale-95 shrink-0 flex items-center gap-1"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>الفتح في نافذة جديدة 🔗</span>
+            </a>
+          </div>
+        )}
+
+        {/* In-App Browser Warning Banner */}
+        {isInApp && !isIframe && (
+          <div className="mb-6 p-4 bg-rose-50 border border-rose-200/70 rounded-2xl flex items-start gap-3 text-rose-950 text-xs sm:text-sm font-semibold shadow-xs" id="in-app-browser-warning" dir="rtl">
+            <AlertCircle className="w-5.5 h-5.5 text-rose-600 shrink-0 mt-0.5" />
+            <div className="flex-1 space-y-1">
+              <span className="text-rose-900 font-bold block">🚨 تنبيه لمستخدمي الواتساب / التطبيقات الأخرى:</span>
+              <p className="text-[11px] text-rose-800 leading-relaxed font-semibold">
+                المتصفحات المدمجة داخل تطبيقات مثل <strong className="text-rose-950">WhatsApp</strong> تحجب تماماً تثبيت التطبيقات المستقلة (PWA) وتمنع ظهور مساعد النشر في قائمة المشاركة بهاتفك.
+              </p>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                * يرجى الضغط على النقاط الثلاث في أعلى الشاشة (أو أسفلها) واختيار <strong className="text-rose-950">"الفتح في متصفح خارجي"</strong> أو <strong className="text-rose-950">"الفتح في متصفح Chrome / Safari"</strong> لتستمتع بكافة الميزات وتقوم بتثبيته بنجاح.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Helper Alert for Shared Target Target explanation */}
         <div className="mb-6 p-4 bg-teal-50/70 border border-teal-100 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center gap-3 text-teal-950 text-xs sm:text-sm font-semibold" id="top-info-banner">
           <Info className="w-5 h-5 text-teal-600 shrink-0 mt-0.5 sm:mt-0" />

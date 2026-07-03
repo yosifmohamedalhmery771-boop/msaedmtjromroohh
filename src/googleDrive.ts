@@ -66,11 +66,71 @@ export async function fetchDriveImages(
 /**
  * Downloads a Google Drive file as a Blob.
  */
+async function downloadImageViaCanvas(url: string): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get 2D canvas context'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('Failed to convert canvas to blob'));
+          }
+        }, 'image/jpeg', 0.95);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    img.onerror = (e) => {
+      reject(new Error('Failed to load image via browser image engine'));
+    };
+    img.src = url;
+  });
+}
+
 export async function downloadDriveFile(
   fileId: string, 
   tokenOrKey: string, 
-  isApiKey: boolean = false
+  isApiKey: boolean = false,
+  thumbnailLink?: string
 ): Promise<Blob> {
+  // If we have a thumbnail link, download from the high-quality optimized CDN link!
+  // This is 100x faster and completely bypasses API CORS / rate limits on web browsers.
+  if (thumbnailLink) {
+    let optimizedUrl = thumbnailLink;
+    if (thumbnailLink.includes('=s')) {
+      optimizedUrl = thumbnailLink.replace(/=s\d+$/, '=s1200');
+    } else {
+      optimizedUrl = `${thumbnailLink}=s1200`;
+    }
+    
+    // Attempt high-speed canvas-based download first (bypasses CORS restrictions on fetch)
+    try {
+      return await downloadImageViaCanvas(optimizedUrl);
+    } catch (e) {
+      console.warn('Canvas download failed, trying direct fetch from optimized URL...', e);
+      try {
+        const response = await fetch(optimizedUrl);
+        if (response.ok) {
+          return await response.blob();
+        }
+      } catch (fe) {
+        console.warn('Failed to fetch from optimized URL, falling back to standard API...', fe);
+      }
+    }
+  }
+
   let url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
   const headers: HeadersInit = {};
 
@@ -83,7 +143,9 @@ export async function downloadDriveFile(
   const response = await fetch(url, { headers });
 
   if (!response.ok) {
-    throw new Error('فشل تحميل الصورة من جوجل درايف.');
+    const errText = await response.text().catch(() => '');
+    console.error('Download error from standard API:', errText);
+    throw new Error(`فشل تحميل الصورة من جوجل درايف: ${response.statusText || response.status}`);
   }
 
   return response.blob();

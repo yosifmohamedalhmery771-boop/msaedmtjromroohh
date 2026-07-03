@@ -41,9 +41,31 @@ export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
 ) => {
-  // Check if there is a redirect sign-in result on page load
+  let redirectChecked = false;
+  let authChangedFired = false;
+  let currentAuthUser: User | null = null;
+
+  const checkCompleteState = () => {
+    if (!redirectChecked || !authChangedFired) return;
+
+    const user = currentAuthUser;
+    if (user) {
+      const savedToken = localStorage.getItem('um_ruha_gdrive_token') || cachedAccessToken;
+      if (savedToken) {
+        cachedAccessToken = savedToken;
+        if (onAuthSuccess) onAuthSuccess(user, savedToken);
+      } else {
+        if (onAuthFailure) onAuthFailure();
+      }
+    } else {
+      if (onAuthFailure) onAuthFailure();
+    }
+  };
+
+  // Check redirect result on page load
   getRedirectResult(auth)
     .then((result) => {
+      redirectChecked = true;
       if (result) {
         const credential = GoogleAuthProvider.credentialFromResult(result);
         if (credential?.accessToken) {
@@ -51,35 +73,20 @@ export const initAuth = (
           try {
             localStorage.setItem('um_ruha_gdrive_token', cachedAccessToken);
           } catch (e) {}
-          if (onAuthSuccess) {
-            onAuthSuccess(result.user, cachedAccessToken);
-          }
         }
       }
+      checkCompleteState();
     })
     .catch((err) => {
       console.error('Redirect sign in result error:', err);
+      redirectChecked = true;
+      checkCompleteState();
     });
 
   return onAuthStateChanged(auth, async (user: User | null) => {
-    if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        // If there is no token cached yet, sign in again or prompt
-        cachedAccessToken = null;
-        try {
-          localStorage.removeItem('um_ruha_gdrive_token');
-        } catch (e) {}
-        if (onAuthFailure) onAuthFailure();
-      }
-    } else {
-      cachedAccessToken = null;
-      try {
-        localStorage.removeItem('um_ruha_gdrive_token');
-      } catch (e) {}
-      if (onAuthFailure) onAuthFailure();
-    }
+    currentAuthUser = user;
+    authChangedFired = true;
+    checkCompleteState();
   });
 };
 
