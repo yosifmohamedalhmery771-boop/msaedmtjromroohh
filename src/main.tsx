@@ -9,6 +9,8 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js')
       .then((registration) => {
         console.log('SW registered with scope: ', registration.scope);
+        // Force checking for updates immediately on load to prevent stale/blank screen
+        registration.update();
       })
       .catch((err) => {
         console.error('SW registration failed: ', err);

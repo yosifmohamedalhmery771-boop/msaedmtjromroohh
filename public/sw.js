@@ -1,4 +1,4 @@
-const CACHE_NAME = 'um-ruha-v1';
+const CACHE_NAME = 'um-ruha-v3';
 const ASSETS = [
   '/',
   '/index.html',
@@ -33,7 +33,28 @@ self.addEventListener('fetch', (event) => {
   if (event.request.url.includes('googleapis.com') || event.request.url.includes('firebase')) {
     return;
   }
+
+  // Network-First strategy for HTML / Navigation requests to prevent white screen of death on update
+  if (event.request.mode === 'navigate' || event.request.url.endsWith('.html') || event.request.url === self.location.origin + '/') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Update cache with the latest version
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
+          return response;
+        })
+        .catch(() => {
+          // If offline, serve from cache
+          return caches.match(event.request);
+        })
+    );
+    return;
+  }
   
+  // For other requests, use Cache-First falling back to network
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
