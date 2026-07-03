@@ -21,7 +21,7 @@ interface ShareTabProps {
   settings: Settings;
   accessToken: string | null;
   needsAuth: boolean;
-  onLogin: () => void;
+  onLogin: (useRedirect?: boolean) => void;
   sharedText: string;
   onSharedTextChange: (text: string) => void;
   onPreviewImage: (image: DriveImage) => void;
@@ -413,13 +413,23 @@ export default function ShareTab({
                   يرجى ربط حساب جوجل درايف الخاص بك لتتمكن من تحميل الصور وعرضها وتحديدها مباشرة داخل الأداة.
                 </p>
               </div>
-              <button
-                onClick={onLogin}
-                className="px-5 py-2.5 bg-gradient-to-l from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-sm rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95"
-                id="btn-login-prompt-share-tab"
-              >
-                تسجيل الدخول وربط جوجل درايف
-              </button>
+              
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 max-w-sm mx-auto pt-2">
+                <button
+                  onClick={() => onLogin(true)}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
+                  id="btn-login-prompt-share-tab-redirect"
+                >
+                  تسجيل بالتحويل المباشر 🔗 (للهاتف)
+                </button>
+                <button
+                  onClick={() => onLogin(false)}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-all active:scale-95 cursor-pointer"
+                  id="btn-login-prompt-share-tab-popup"
+                >
+                  نافذة منبثقة 💻
+                </button>
+              </div>
             </div>
           ) : settings.folders.length === 0 ? (
             <div className="p-8 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-100 space-y-3" id="no-folders-warning">
@@ -440,20 +450,27 @@ export default function ShareTab({
                 <AlertTriangle className="w-4 h-4 shrink-0" />
                 <span>{imageError}</span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-center gap-2">
                 <button
                   onClick={loadFolderImages}
-                  className="px-3 py-1.5 bg-white border border-red-200 text-red-700 rounded-lg hover:bg-red-100 transition-colors"
+                  className="px-3 py-1.5 bg-white border border-red-200 text-red-700 rounded-lg hover:bg-red-100 transition-colors cursor-pointer text-[11px]"
                   id="btn-retry-images"
                 >
                   إعادة المحاولة
                 </button>
                 <button
-                  onClick={onLogin}
-                  className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                  id="btn-relogin-fix"
+                  onClick={() => onLogin(true)}
+                  className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors cursor-pointer text-[11px]"
+                  id="btn-relogin-fix-redirect"
                 >
-                  تجديد تسجيل الدخول لجوجل
+                  تجديد تسجيل الدخول (تحويل مباشر)
+                </button>
+                <button
+                  onClick={() => onLogin(false)}
+                  className="px-3 py-1.5 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors cursor-pointer text-[11px]"
+                  id="btn-relogin-fix-popup"
+                >
+                  تجديد (نافذة منبثقة)
                 </button>
               </div>
             </div>
