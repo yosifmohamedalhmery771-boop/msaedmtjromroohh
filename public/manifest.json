@@ -1,0 +1,27 @@
+{
+  "name": "مساعد النشر لمتجر أم روح",
+  "short_name": "مساعد النشر",
+  "description": "أداة ذكية لتسهيل مشاركة وتجهيز منتجات متجر أم روح على قنوات الواتساب مباشرة من مجلدات جوجل درايف مع تنسيق تلقائي للروابط والوصف.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#128c7e",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "share_target": {
+    "action": "/",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}

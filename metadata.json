@@ -1,0 +1,6 @@
+{
+  "name": "مساعد النشر لمتجر أم روح",
+  "description": "أداة ذكية لتسهيل مشاركة وتجهيز منتجات متجر أم روح على قنوات الواتساب مباشرة من مجلدات جوجل درايف مع تنسيق تلقائي للروابط والوصف.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

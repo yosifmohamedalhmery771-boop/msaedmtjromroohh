@@ -1,0 +1,570 @@
+import React from 'react';
+import { 
+  Share2, 
+  Copy, 
+  Download, 
+  RefreshCw, 
+  Grid, 
+  FileText, 
+  Check, 
+  Eye, 
+  HelpCircle, 
+  AlertTriangle,
+  FolderOpen,
+  ArrowLeftRight
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Settings, FolderConfig } from '../types';
+import { DriveImage, fetchDriveImages, downloadDriveFile } from '../googleDrive';
+
+interface ShareTabProps {
+  settings: Settings;
+  accessToken: string | null;
+  needsAuth: boolean;
+  onLogin: () => void;
+  sharedText: string;
+  onSharedTextChange: (text: string) => void;
+  onPreviewImage: (image: DriveImage) => void;
+}
+
+export default function ShareTab({
+  settings,
+  accessToken,
+  needsAuth,
+  onLogin,
+  sharedText,
+  onSharedTextChange,
+  onPreviewImage
+}: ShareTabProps) {
+  const [selectedFolder, setSelectedFolder] = React.useState<FolderConfig | null>(
+    settings.folders.length > 0 ? settings.folders[0] : null
+  );
+  
+  const [images, setImages] = React.useState<DriveImage[]>([]);
+  const [selectedImages, setSelectedImages] = React.useState<DriveImage[]>([]);
+  const [isLoadingImages, setIsLoadingImages] = React.useState(false);
+  const [imageError, setImageError] = React.useState('');
+  
+  // Share processing states
+  const [isPreparingShare, setIsPreparingShare] = React.useState(false);
+  const [shareProgress, setShareProgress] = React.useState('');
+  const [copiedText, setCopiedText] = React.useState(false);
+  const [fallbackActive, setFallbackActive] = React.useState(false);
+
+  // Sync selected folder if settings folders change
+  React.useEffect(() => {
+    if (settings.folders.length > 0 && !selectedFolder) {
+      setSelectedFolder(settings.folders[0]);
+    }
+  }, [settings.folders, selectedFolder]);
+
+  // Load images when selected folder or accessToken changes
+  const loadFolderImages = React.useCallback(async () => {
+    if (!selectedFolder || !accessToken) return;
+    
+    setIsLoadingImages(true);
+    setImageError('');
+    setImages([]);
+    setSelectedImages([]); // Clear previous selections
+
+    try {
+      const driveFiles = await fetchDriveImages(selectedFolder.id, accessToken);
+      setImages(driveFiles);
+    } catch (err: any) {
+      console.error('Error loading images:', err);
+      setImageError(err.message || 'حدث خطأ أثناء تحميل الصور من المجلد. يرجى التأكد من صلاحية المجلد وإعادة تسجيل الدخول.');
+    } finally {
+      setIsLoadingImages(false);
+    }
+  }, [selectedFolder, accessToken]);
+
+  React.useEffect(() => {
+    loadFolderImages();
+  }, [loadFolderImages]);
+
+  // Handle Multi-Selection
+  const toggleSelectImage = (img: DriveImage) => {
+    if (selectedImages.some(item => item.id === img.id)) {
+      setSelectedImages(selectedImages.filter(item => item.id !== img.id));
+    } else {
+      setSelectedImages([...selectedImages, img]);
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedImages.length === images.length) {
+      setSelectedImages([]);
+    } else {
+      setSelectedImages([...images]);
+    }
+  };
+
+  // Construct the formatted WhatsApp message text
+  const getFormattedMessage = () => {
+    let msg = '';
+    
+    // 1. Product original description
+    if (sharedText.trim()) {
+      msg += `${sharedText.trim()}\n\n`;
+    } else {
+      msg += `(يرجى كتابة أو لصق وصف المنتج هنا)\n\n`;
+    }
+
+    // 2. WhatsApp Channel Info
+    if (settings.whatsappChannelLink) {
+      msg += `📢 تابعوا جديدنا على قناة متجر أم روح على واتساب:\n${settings.whatsappChannelLink}\n\n`;
+    }
+
+    // 4. WhatsApp Order Info
+    if (settings.whatsappOrderLink) {
+      msg += `🛒 نتشرف باستقبال طلباتكم واستفساراتكم على:\n${settings.whatsappOrderLink}\n\n`;
+    }
+
+    // 5. Beautiful closing message
+    if (settings.closingMessage) {
+      msg += `${settings.closingMessage}`;
+    }
+
+    return msg;
+  };
+
+  // Copy text to clipboard helper
+  const handleCopyText = async () => {
+    const text = getFormattedMessage();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedText(true);
+      setTimeout(() => setCopiedText(false), 2500);
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+    }
+  };
+
+  // Primary share & download operation
+  const handleShareAndPublish = async () => {
+    if (selectedImages.length === 0) {
+      alert('يرجى تحديد صورة واحدة على الأقل للمشاركة.');
+      return;
+    }
+
+    if (!accessToken) {
+      alert('يرجى تسجيل الدخول إلى جوجل درايف أولاً.');
+      return;
+    }
+
+    setIsPreparingShare(true);
+    setShareProgress('جاري تحضير الملفات...');
+    setFallbackActive(false);
+
+    try {
+      const filesArray: File[] = [];
+
+      for (let i = 0; i < selectedImages.length; i++) {
+        const img = selectedImages[i];
+        setShareProgress(`جاري تحميل الصورة ${i + 1} من ${selectedImages.length}...`);
+        
+        const blob = await downloadDriveFile(img.id, accessToken);
+        // Determine correct file extension from MIME type
+        const ext = img.mimeType.split('/')[1] || 'jpeg';
+        const file = new File([blob], `product_${i + 1}.${ext}`, { type: img.mimeType });
+        filesArray.push(file);
+      }
+
+      setShareProgress('تجهيز النص والروابط التلقائية...');
+      const formattedText = getFormattedMessage();
+
+      // Check if browser supports sharing files natively (Web Share API)
+      const shareData = {
+        files: filesArray,
+        title: 'منتجات متجر أم روح',
+        text: formattedText
+      };
+
+      if (navigator.canShare && navigator.canShare(shareData)) {
+        setShareProgress('جاري فتح قائمة المشاركة بالنظام...');
+        await navigator.share(shareData);
+        setIsPreparingShare(false);
+      } else {
+        // Fallback for browsers that don't support file sharing
+        triggerDownloadAndCopyFallback(filesArray, formattedText);
+      }
+
+    } catch (err: any) {
+      console.error('Error during sharing:', err);
+      // If sharing aborted or failed, fallback to copy text + download files
+      if (err.name !== 'AbortError') {
+        alert('حدث خطأ أثناء المشاركة المباشرة. سيتم الآن تفعيل خيار التحميل اليدوي للصور ونسخ النص لسهولة مشاركته.');
+        triggerDownloadAndCopyFallback([], getFormattedMessage());
+      } else {
+        setIsPreparingShare(false);
+      }
+    }
+  };
+
+  // Fallback for devices without Web Share API or for desktop
+  const triggerDownloadAndCopyFallback = async (files: File[], text: string) => {
+    setShareProgress('تنزيل الصور ونسخ النص تلقائياً...');
+    
+    // Copy the text to clipboard
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedText(true);
+      setTimeout(() => setCopiedText(false), 3000);
+    } catch (e) {
+      console.error('Failed to copy text in fallback:', e);
+    }
+
+    // Trigger downloads for each selected image
+    if (files.length > 0) {
+      files.forEach((file) => {
+        const url = URL.createObjectURL(file);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    } else {
+      // If files weren't loaded, download using direct URL or fetch on-the-fly
+      for (let i = 0; i < selectedImages.length; i++) {
+        const img = selectedImages[i];
+        try {
+          const blob = await downloadDriveFile(img.id, accessToken!);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = img.name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          console.error('Download fail for image', img.name, e);
+        }
+      }
+    }
+
+    setFallbackActive(true);
+    setIsPreparingShare(false);
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-12 animate-fade-in" id="share-tab-view">
+      
+      {/* LEFT COLUMN: Preparation Controls (7 Cols) */}
+      <div className="lg:col-span-7 space-y-6">
+        
+        {/* Step 1: Product Description Box */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4" id="prepare-step-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-teal-100 text-teal-700 text-xs font-bold flex items-center justify-center">١</span>
+              <h3 className="font-extrabold text-slate-800 text-base">وصف المنتج من المتجر</h3>
+            </div>
+            {sharedText && (
+              <button 
+                onClick={() => onSharedTextChange('')} 
+                className="text-xs text-red-500 hover:text-red-700 font-semibold"
+                id="btn-clear-desc"
+              >
+                مسح المحتوى
+              </button>
+            )}
+          </div>
+
+          <textarea
+            value={sharedText}
+            onChange={(e) => onSharedTextChange(e.target.value)}
+            rows={5}
+            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition-all text-sm font-semibold leading-relaxed"
+            placeholder="ألصق وصف المنتج هنا مع رابط المتجر (أو سيتم ملؤه تلقائياً عند مشاركة الصنف من تطبيق المتجر)..."
+            id="textarea-product-desc"
+          />
+        </div>
+
+        {/* Step 2: Select Folder and Images */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-5" id="prepare-step-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-50">
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-teal-100 text-teal-700 text-xs font-bold flex items-center justify-center">٢</span>
+              <h3 className="font-extrabold text-slate-800 text-base">اختر مجلد الصور وتحديدها</h3>
+            </div>
+            
+            {/* Folder Selection Dropdown / Buttons */}
+            {settings.folders.length > 0 && (
+              <div className="flex items-center gap-2" id="folder-selection-dropdown-wrapper">
+                <select
+                  value={selectedFolder ? selectedFolder.id : ''}
+                  onChange={(e) => {
+                    const folder = settings.folders.find(f => f.id === e.target.value);
+                    if (folder) setSelectedFolder(folder);
+                  }}
+                  className="px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors"
+                  id="select-drive-folder"
+                >
+                  {settings.folders.map(f => (
+                    <option key={f.id} value={f.id}>{f.name}</option>
+                  ))}
+                </select>
+
+                {accessToken && !isLoadingImages && (
+                  <button
+                    onClick={loadFolderImages}
+                    className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-500 hover:text-teal-600 transition-all"
+                    title="تحديث قائمة الصور"
+                    id="btn-refresh-images"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Warnings and Login Prompts if disconnected */}
+          {needsAuth ? (
+            <div className="p-8 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-100 space-y-4" id="google-disconnected-warning">
+              <AlertTriangle className="w-10 h-10 mx-auto text-amber-500" />
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-slate-700">لم يتم ربط جوجل درايف بعد</p>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  يرجى ربط حساب جوجل درايف الخاص بك لتتمكن من تحميل الصور وعرضها وتحديدها مباشرة داخل الأداة.
+                </p>
+              </div>
+              <button
+                onClick={onLogin}
+                className="px-5 py-2.5 bg-gradient-to-l from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-sm rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95"
+                id="btn-login-prompt-share-tab"
+              >
+                تسجيل الدخول وربط جوجل درايف
+              </button>
+            </div>
+          ) : settings.folders.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-100 space-y-3" id="no-folders-warning">
+              <FolderOpen className="w-10 h-10 mx-auto text-slate-400" />
+              <p className="text-sm font-bold text-slate-700">لا توجد مجلدات مضافة في الإعدادات</p>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                اذهب إلى صفحة الإعدادات وأضف روابط مجلدات درايف الخاصة بمنتجاتك لتتمكن من تصفح صورها وتحديدها هنا.
+              </p>
+            </div>
+          ) : isLoadingImages ? (
+            <div className="py-16 text-center space-y-3" id="images-loader">
+              <div className="w-10 h-10 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+              <p className="text-xs font-semibold text-slate-500">جاري تحميل الصور من جوجل درايف...</p>
+            </div>
+          ) : imageError ? (
+            <div className="p-5 bg-red-50 text-red-600 rounded-2xl text-xs font-semibold space-y-3 border border-red-100" id="google-images-error">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{imageError}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={loadFolderImages}
+                  className="px-3 py-1.5 bg-white border border-red-200 text-red-700 rounded-lg hover:bg-red-100 transition-colors"
+                  id="btn-retry-images"
+                >
+                  إعادة المحاولة
+                </button>
+                <button
+                  onClick={onLogin}
+                  className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  id="btn-relogin-fix"
+                >
+                  تجديد تسجيل الدخول لجوجل
+                </button>
+              </div>
+            </div>
+          ) : images.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 space-y-2" id="empty-folder-placeholder">
+              <Grid className="w-10 h-10 mx-auto text-slate-300" />
+              <p className="text-sm font-bold">المجلد فارغ أو لا يحتوي على صور</p>
+              <p className="text-xs text-slate-400">تأكد من رفع صور المنتجات في هذا المجلد على جوجل درايف ثم اضغط تحديث.</p>
+            </div>
+          ) : (
+            <div className="space-y-4" id="images-explorer-wrapper">
+              {/* Select Actions header */}
+              <div className="flex items-center justify-between text-xs text-slate-500 font-bold" id="images-selection-status">
+                <span>تم تحديد ({selectedImages.length} من {images.length}) صورة</span>
+                <button
+                  type="button"
+                  onClick={handleSelectAll}
+                  className="text-teal-600 hover:text-teal-700 transition-colors cursor-pointer"
+                  id="btn-select-all"
+                >
+                  {selectedImages.length === images.length ? 'إلغاء تحديد الكل' : 'تحديد جميع الصور'}
+                </button>
+              </div>
+
+              {/* Images Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[360px] overflow-y-auto p-1" id="images-grid">
+                {images.map((img) => {
+                  const isSelected = selectedImages.some(item => item.id === img.id);
+                  return (
+                    <div
+                      key={img.id}
+                      onClick={() => toggleSelectImage(img)}
+                      className={`relative aspect-square rounded-2xl overflow-hidden cursor-pointer border-2 transition-all group select-none ${
+                        isSelected 
+                          ? 'border-teal-500 ring-2 ring-teal-500/20' 
+                          : 'border-slate-100 hover:border-slate-300'
+                      }`}
+                      id={`image-card-${img.id}`}
+                    >
+                      {/* Image Thumbnail */}
+                      <img
+                        src={img.thumbnailLink}
+                        alt={img.name}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+
+                      {/* Selection Checkbox indicator overlay */}
+                      <div className={`absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center transition-all ${
+                        isSelected ? 'bg-teal-600 text-white' : 'bg-black/40 text-transparent border border-white/50'
+                      }`}>
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      </div>
+
+                      {/* Preview Overlay Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onPreviewImage(img);
+                        }}
+                        className="absolute bottom-2 left-2 p-1.5 rounded-lg bg-black/60 hover:bg-black/80 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="معاينة الصورة"
+                        id={`btn-preview-img-${img.id}`}
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* File Name tooltip on hover */}
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <p className="text-[9px] text-white font-medium truncate text-center">{img.name}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      {/* RIGHT COLUMN: Real-Time Structured Output Live Preview & Publish (5 Cols) */}
+      <div className="lg:col-span-5 space-y-6">
+        
+        {/* Step 3: Structured Live Preview */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-4 flex flex-col max-h-[600px]" id="prepare-step-3">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-50">
+            <div className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-teal-600" />
+              <h3 className="font-extrabold text-slate-800 text-base">معاينة الرسالة النهائية</h3>
+            </div>
+            
+            <button
+              onClick={handleCopyText}
+              className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-bold bg-teal-50 px-3 py-1.5 rounded-xl transition-all"
+              id="btn-copy-live-preview"
+            >
+              {copiedText ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="text-emerald-600">تم النسخ!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>نسخ النص</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Formatted Text Preview Area */}
+          <div className="flex-1 overflow-y-auto bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs text-slate-700 space-y-4 leading-relaxed whitespace-pre-line text-right" id="live-preview-content">
+            {/* Image Selection thumbnails inside the preview */}
+            {selectedImages.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">الصور المرفقة ({selectedImages.length}):</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedImages.map((img) => (
+                    <div key={img.id} className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0">
+                      <img src={img.thumbnailLink} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+                <div className="h-[1px] bg-slate-200/60 my-2"></div>
+              </div>
+            )}
+
+            {/* Generated structured text preview */}
+            <div className="font-semibold text-slate-800" id="preview-text-body">
+              {getFormattedMessage()}
+            </div>
+          </div>
+
+          {/* Fallback success panel */}
+          {fallbackActive && (
+            <div className="p-3.5 bg-emerald-50 text-emerald-800 rounded-2xl text-xs space-y-2 border border-emerald-100" id="fallback-publish-notice">
+              <div className="flex items-center gap-2">
+                <Check className="w-4 h-4 shrink-0 text-emerald-600" />
+                <span className="font-bold">تم تحميل الصور ونسخ النص بنجاح! 🎉</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-slate-600">
+                لقد تم تحميل {selectedImages.length} صورة من درايف إلى جهازك ونسخ النص المنسق بالكامل للحافظة. يمكنك الآن الذهاب لقناة الواتساب ولصقها معاً.
+              </p>
+              {settings.whatsappChannelLink && (
+                <a
+                  href={settings.whatsappChannelLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-emerald-700 bg-white border border-emerald-200 px-3 py-1.5 rounded-xl font-bold hover:bg-emerald-100 transition-colors mt-1"
+                  id="btn-goto-wa-channel"
+                >
+                  <span>الذهاب لقناة الواتساب الآن 💬</span>
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* Share Trigger button with loader */}
+          <button
+            onClick={handleShareAndPublish}
+            disabled={isPreparingShare || selectedImages.length === 0}
+            className={`w-full py-4 text-white rounded-2xl font-extrabold text-base transition-all flex items-center justify-center gap-2.5 shadow-lg active:scale-95 cursor-pointer disabled:cursor-not-allowed ${
+              selectedImages.length === 0 
+                ? 'bg-slate-300 text-slate-500 shadow-none hover:bg-slate-300' 
+                : 'bg-emerald-600 hover:bg-emerald-700 hover:shadow-emerald-600/10'
+            }`}
+            id="btn-trigger-share"
+          >
+            {isPreparingShare ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm">{shareProgress}</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-5 h-5 text-emerald-100" />
+                <span>مشاركة وتصدير لقناة الواتساب 💬</span>
+              </>
+            )}
+          </button>
+          
+          {selectedImages.length === 0 && (
+            <p className="text-[10px] text-slate-400 text-center font-semibold">
+              * حدد صورة منتج واحدة على الأقل لتتمكن من التجهيز والمشاركة.
+            </p>
+          )}
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
