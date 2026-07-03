@@ -269,7 +269,7 @@ export default function PWAInstallModal({
                     <div className="flex items-start gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                       <span className="w-5.5 h-5.5 bg-white border border-slate-200 text-slate-700 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">٢</span>
                       <div className="flex-1">
-                        اضغطي على زر <strong className="text-sky-600 inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-slate-200 text-[10px] font-extrabold"><Share className="w-3C h-3" /> "مشاركة" (Share)</strong> في شريط الأدوات السفلي للمتصفح.
+                        اضغطي على زر <strong className="text-sky-600 inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-slate-200 text-[10px] font-extrabold"><Share className="w-3 h-3" /> "مشاركة" (Share)</strong> في شريط الأدوات السفلي للمتصفح.
                       </div>
                     </div>
 
